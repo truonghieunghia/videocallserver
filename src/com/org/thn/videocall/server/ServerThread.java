@@ -27,15 +27,31 @@ public class ServerThread extends Thread {
 		mClientID = mSocket.getRemoteSocketAddress().toString();
 	}
 
+	public synchronized void sendData() {
+
+	}
+
+	public void reciverData() {
+
+	}
+
+	public PrintWriter getOutPut() {
+		return os;
+	}
+
+	public Socket getSocket() {
+		return mSocket;
+	}
+
 	public void sendTarget(String key, String Data) {
 		PrintWriter os_send = null;
-		Iterator<Entry<String, Socket>> it = VideoCallApp.mlistClient.entrySet().iterator();
+		Iterator<Entry<String, ServerThread>> it = VideoCallApp.mlistClient.entrySet().iterator();
 		while (it.hasNext()) {
-			Map.Entry<String, Socket> pair = it.next();
+			Map.Entry<String, ServerThread> pair = it.next();
 			if (!pair.equals(key)) {
-				Socket socket = pair.getValue();
+				ServerThread socket = pair.getValue();
 				try {
-					os_send = new PrintWriter(socket.getOutputStream());
+					os_send = new PrintWriter(socket.getSocket().getOutputStream());
 					os_send.println(Data);
 					os_send.flush();
 				} catch (IOException e) {
@@ -55,28 +71,27 @@ public class ServerThread extends Thread {
 			byte[] bytes = new byte[1024];
 			int count = in.read(bytes, 0, 1024);
 			OutputStream os_send = null;
-			int off = 0;
 			while (count != -1) {
-				//			
-				Iterator<Entry<String, Socket>> it = VideoCallApp.mlistClient.entrySet().iterator();
+				//
+				Iterator<Entry<String, ServerThread>> it = VideoCallApp.mlistClient.entrySet().iterator();
 				while (it.hasNext()) {
-					Map.Entry<String, Socket> pair = it.next();
-					Socket socket = pair.getValue();
+					Map.Entry<String, ServerThread> pair = it.next();
+					ServerThread socket = pair.getValue();
 					try {
-						os_send = socket.getOutputStream();
+						os_send = socket.getSocket().getOutputStream();
 						os_send.write(bytes, 0, 1024);
 						os_send.flush();
 						System.out.println(bytes.toString());
 						count = in.read(bytes, 0, 1024);
 					} catch (IOException e) {
-						System.out.println("IO error "+e.getMessage());
+						System.out.println("IO error " + e.getMessage());
 					} finally {
-						
+
 					}
 				}
 				count = in.read(bytes, 0, 1024);
 				//
-			} 
+			}
 			in.close();
 			System.out.println("send stream complele");
 		} catch (FileNotFoundException e) {
@@ -85,7 +100,7 @@ public class ServerThread extends Thread {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}	
+		}
 	}
 
 	public void run() {
@@ -103,11 +118,11 @@ public class ServerThread extends Thread {
 				// os.flush();
 				System.out.println("Response to Client  :  " + line);
 				sendTarget(mClientID, line);
-				
+
 				new Thread(new Runnable() {
-					
+
 					@Override
-					public void run() {					
+					public void run() {
 						sendVideo();
 					}
 				}).start();
@@ -145,5 +160,5 @@ public class ServerThread extends Thread {
 			}
 		}
 	}
-	
+
 }
