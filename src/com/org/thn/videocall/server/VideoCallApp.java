@@ -1,9 +1,11 @@
 package com.org.thn.videocall.server;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URL;
 import java.util.Hashtable;
 
 public class VideoCallApp {
@@ -14,13 +16,13 @@ public class VideoCallApp {
 		ServerSocket serverSocket = null;
 		Socket socket = null;
 
-		try {
+		try {		
 			System.out.println("ServerIP:" + InetAddress.getLocalHost().getHostAddress());
 			serverSocket = new ServerSocket(DEFAULT_PORT);
 			System.out.println("Listening on port " + DEFAULT_PORT);
 			while (true) {
 				socket = serverSocket.accept();
-				socket.setSoTimeout(60000);
+//				socket.setSoTimeout(60000);
 				System.out.println("Connection receive from " + socket.getRemoteSocketAddress());
 				mlistClient.put(socket.getRemoteSocketAddress().toString(), socket);
 				new ServerThread(socket).start();
