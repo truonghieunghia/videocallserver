@@ -21,6 +21,9 @@ public class ServerThread extends Thread {
 	PrintWriter os = null;
 	Socket mSocket = null;
 	String mClientID;
+	private InputStream mIn;
+	private OutputStream mOut;
+	CommonSoundClass cs = new CommonSoundClass();
 
 	public ServerThread(Socket socket) {
 		mSocket = socket;
@@ -105,6 +108,10 @@ public class ServerThread extends Thread {
 
 	public void run() {
 		try {
+			mOut = mSocket.getOutputStream();
+			mOut.flush();
+
+			mIn = mSocket.getInputStream();
 			is = new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
 			os = new PrintWriter(mSocket.getOutputStream());
 		} catch (IOException e) {
@@ -161,4 +168,24 @@ public class ServerThread extends Thread {
 		}
 	}
 
+	class SenderThread extends Thread {
+		ServerThread mServerThread;
+		public SenderThread(ServerThread serverThread){
+			mServerThread = serverThread;
+		}
+		@Override
+		public void run() {
+			while(true){				
+				try {
+					byte[] b = (byte[]) cs.readbyte();
+					mServerThread.mOut.write(b);
+					mServerThread.mOut.flush();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+			}
+		}
+	}
 }
