@@ -29,9 +29,15 @@ public class VideoCallApp {
 				System.out.println("ListClinet:"+mlistClient.size());				
 			}
 
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
+		} catch (IOException e) {			
 			e.printStackTrace();
+		}finally {
+			try {
+				serverSocket.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 
 	}

@@ -1,29 +1,27 @@
 package com.org.thn.videocall.server;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.URL;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
 public class ServerThread extends Thread {
-	String line = null;
-	BufferedReader is = null;
-	PrintWriter os = null;
+	public static HashMap<String, ServerThread> LIST_CLIENT = new HashMap<>();
 	Socket mSocket = null;
 	String mClientID;
 	private InputStream mIn;
 	private OutputStream mOut;
 	CommonSoundClass cs = new CommonSoundClass();
+	private boolean keepGoing = false;
 
 	public ServerThread(Socket socket) {
 		mSocket = socket;
@@ -36,10 +34,6 @@ public class ServerThread extends Thread {
 
 	public void reciverData() {
 
-	}
-
-	public PrintWriter getOutPut() {
-		return os;
 	}
 
 	public Socket getSocket() {
@@ -110,72 +104,28 @@ public class ServerThread extends Thread {
 		try {
 			mOut = mSocket.getOutputStream();
 			mOut.flush();
-
-			mIn = mSocket.getInputStream();
-			is = new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
-			os = new PrintWriter(mSocket.getOutputStream());
+			SenderThread senderThread = new SenderThread(this);
+			senderThread.start();
+			keepGoing = true;
+			mIn = mSocket.getInputStream();			
 		} catch (IOException e) {
 			System.out.println("IO error in server thread");
 		}
-		try {
-			line = is.readLine();
-			while (line.compareTo("QUIT") != 0) {
-
-				// os.println(line);
-				// os.flush();
-				System.out.println("Response to Client  :  " + line);
-				sendTarget(mClientID, line);
-
-				new Thread(new Runnable() {
-
-					@Override
-					public void run() {
-						sendVideo();
-					}
-				}).start();
-				line = is.readLine();
-			}
-			os.println("QUIT");
-			os.flush();
-		} catch (IOException e) {
-			line = this.getName(); // reused String line for getting thread name
-			System.out.println("IO Error/ Client " + line + " terminated abruptly");
-		} catch (NullPointerException e) {
-			line = this.getName(); // reused String line for getting thread name
-			System.out.println("Client " + line + " Closed");
-		} finally {
-			try {
-				System.out.println("Connection Closing..");
-				if (is != null) {
-					is.close();
-					System.out.println(" Socket Input Stream Closed");
-				}
-
-				if (os != null) {
-					os.close();
-					System.out.println("Socket Out Closed");
-				}
-				if (mSocket != null) {
-					mSocket.close();
-					VideoCallApp.mlistClient.remove(mClientID);
-					System.out.println("Socket Closed");
-					System.out.println("ListClinet:" + VideoCallApp.mlistClient.size());
-				}
-
-			} catch (IOException ie) {
-				System.out.println("Socket Close Error");
-			}
+		synchronized (LIST_CLIENT) {
+			LIST_CLIENT.put(mClientID, this);
 		}
 	}
 
 	class SenderThread extends Thread {
 		ServerThread mServerThread;
-		public SenderThread(ServerThread serverThread){
+
+		public SenderThread(ServerThread serverThread) {
 			mServerThread = serverThread;
 		}
+
 		@Override
 		public void run() {
-			while(true){				
+			while (true) {
 				try {
 					byte[] b = (byte[]) cs.readbyte();
 					mServerThread.mOut.write(b);
@@ -184,7 +134,7 @@ public class ServerThread extends Thread {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				
+
 			}
 		}
 	}
