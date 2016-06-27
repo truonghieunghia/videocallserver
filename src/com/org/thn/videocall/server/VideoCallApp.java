@@ -14,24 +14,24 @@ public class VideoCallApp {
 		ServerSocket serverSocket = null;
 		Socket socket = null;
 
-		try {		
+		try {
 			System.out.println("ServerIP:" + InetAddress.getLocalHost().getHostAddress());
 			serverSocket = new ServerSocket(DEFAULT_PORT);
 			System.out.println("Listening on port " + DEFAULT_PORT);
 			while (true) {
 				socket = serverSocket.accept();
-//				socket.setSoTimeout(60000);
+				// socket.setSoTimeout(60000);
 				System.out.println("Connection receive from " + socket.getRemoteSocketAddress());
-				
+
 				ServerThread client = new ServerThread(socket);
 				client.start();
-				mlistClient.put(socket.getRemoteSocketAddress().toString(), client);				
-				System.out.println("ListClinet:"+mlistClient.size());				
+				mlistClient.put(socket.getRemoteSocketAddress().toString(), client);
+				System.out.println("ListClinet:" + mlistClient.size());
 			}
 
-		} catch (IOException e) {			
+		} catch (IOException e) {
 			e.printStackTrace();
-		}finally {
+		} finally {
 			try {
 				serverSocket.close();
 			} catch (IOException e) {

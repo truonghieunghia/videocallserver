@@ -6,12 +6,14 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
+import java.io.Serializable;
 import java.net.Socket;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Vector;
+
 import java.util.Map.Entry;
 
 public class ServerThread extends Thread {
@@ -22,6 +24,7 @@ public class ServerThread extends Thread {
 	private OutputStream mOut;
 	CommonSoundClass cs = new CommonSoundClass();
 	private boolean keepGoing = false;
+	Vector<VectorAndSize> mRecievedByteVector = new Vector<VectorAndSize>();
 
 	public ServerThread(Socket socket) {
 		mSocket = socket;
@@ -38,25 +41,6 @@ public class ServerThread extends Thread {
 
 	public Socket getSocket() {
 		return mSocket;
-	}
-
-	public void sendTarget(String key, String Data) {
-		PrintWriter os_send = null;
-		Iterator<Entry<String, ServerThread>> it = VideoCallApp.mlistClient.entrySet().iterator();
-		while (it.hasNext()) {
-			Map.Entry<String, ServerThread> pair = it.next();
-			if (!pair.equals(key)) {
-				ServerThread socket = pair.getValue();
-				try {
-					os_send = new PrintWriter(socket.getSocket().getOutputStream());
-					os_send.println(Data);
-					os_send.flush();
-				} catch (IOException e) {
-					System.out.println("IO error in server thread send");
-				} finally {
-				}
-			}
-		}
 	}
 
 	public void sendVideo() {
@@ -104,15 +88,27 @@ public class ServerThread extends Thread {
 		try {
 			mOut = mSocket.getOutputStream();
 			mOut.flush();
+			mIn = mSocket.getInputStream();
 			SenderThread senderThread = new SenderThread(this);
 			senderThread.start();
 			keepGoing = true;
-			mIn = mSocket.getInputStream();			
 		} catch (IOException e) {
 			System.out.println("IO error in server thread");
 		}
-		synchronized (LIST_CLIENT) {
-			LIST_CLIENT.put(mClientID, this);
+		// synchronized (LIST_CLIENT) {
+		// LIST_CLIENT.put(mClientID, this);
+		// }
+		try {
+			ReceivedQueueProcessorThread il = new ReceivedQueueProcessorThread(this);
+			il.start();
+			while (keepGoing) {
+
+				byte[] bytepassedObj = new byte[MultiChatConstants.bytesize];
+				int sizeread = mIn.read(bytepassedObj, 0, MultiChatConstants.bytesize);
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 
@@ -125,7 +121,7 @@ public class ServerThread extends Thread {
 
 		@Override
 		public void run() {
-			while (true) {
+			while (keepGoing) {
 				try {
 					byte[] b = (byte[]) cs.readbyte();
 					mServerThread.mOut.write(b);
@@ -135,6 +131,78 @@ public class ServerThread extends Thread {
 					e.printStackTrace();
 				}
 
+			}
+		}
+	}
+
+	class VectorAndSize implements Serializable {
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+		public byte[] b;
+		public int size;
+
+		public VectorAndSize(byte[] b, int size) {
+			this.b = b;
+			this.size = size;
+		}
+	}
+
+	class ReceivedQueueProcessorThread extends Thread {
+		ServerThread mPtrToThis = null;
+
+		public ReceivedQueueProcessorThread(ServerThread ptrtoThis) {
+			this.mPtrToThis = ptrtoThis;
+		}
+
+		@Override
+		public void run() {
+			while (keepGoing) {
+				if (mRecievedByteVector.size() > 0) {
+					VectorAndSize vs = mRecievedByteVector.remove(0);
+					byte[] bytepassedObj = vs.b;
+					int sizeread = vs.size;
+
+					processData(sizeread, bytepassedObj);
+				} else {
+					try {
+						synchronized (this) {
+							wait(10);
+						}
+					} catch (Exception mexp) {
+						mexp.printStackTrace();
+					}
+				}
+			}
+		}
+
+		private void processData(int sizeread, byte[] bytepassedObj) {
+			synchronized (LIST_CLIENT) {
+				String passedObj = "";
+				if (sizeread < 100 && sizeread >= 0) {
+                    passedObj = new String(bytepassedObj, 0, sizeread);
+                }
+
+                byte[] b = new byte[sizeread];
+                for (int x = 0 ; x < sizeread; x++) {
+                    b[x] = bytepassedObj[x];
+                }
+				// add client id
+				if ((sizeread > 2 && sizeread < 100 && passedObj.length() >= 2
+						&& passedObj.substring(0, 2).equals("NN")) && mPtrToThis.mClientID == "") {
+					if (LIST_CLIENT.containsKey(passedObj.substring(2, passedObj.length() - 5))) {
+						LIST_CLIENT.remove(passedObj.substring(2, passedObj.length() - 5));
+					}
+					if (keepGoing) {
+						if (passedObj.length() > 6) {
+							mPtrToThis.mClientID = passedObj.substring(2, passedObj.length() - 5);
+							LIST_CLIENT.put(mPtrToThis.mClientID, mPtrToThis);
+							System.out.println(LIST_CLIENT.size() + "Client");
+						}
+					}
+
+				}
 			}
 		}
 	}
