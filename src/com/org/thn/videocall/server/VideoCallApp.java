@@ -26,7 +26,7 @@ public class VideoCallApp {
 				ServerThread client = new ServerThread(socket);
 				client.start();
 				mlistClient.put(socket.getRemoteSocketAddress().toString(), client);
-				System.out.println("ListClinet:" + mlistClient.size());
+				System.out.println("ListClinet:" + ServerThread.LIST_CLIENT.size());
 			}
 
 		} catch (IOException e) {
@@ -35,7 +35,6 @@ public class VideoCallApp {
 			try {
 				serverSocket.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}

@@ -16,4 +16,5 @@ public class MultiChatConstants {
      */
     // Why the +1 ?
     public final static int bytesize = 1024 + 1;
+    public final static String USER_ID="00";
 }

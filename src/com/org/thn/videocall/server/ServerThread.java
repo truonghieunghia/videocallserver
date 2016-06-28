@@ -16,19 +16,22 @@ import java.util.Vector;
 
 import java.util.Map.Entry;
 
+
+
 public class ServerThread extends Thread {
 	public static HashMap<String, ServerThread> LIST_CLIENT = new HashMap<>();
 	Socket mSocket = null;
-	String mClientID;
+	String mClientID="";
 	private InputStream mIn;
 	private OutputStream mOut;
+	private boolean alreadyclosed = false;
 	CommonSoundClass cs = new CommonSoundClass();
 	private boolean keepGoing = false;
 	Vector<VectorAndSize> mRecievedByteVector = new Vector<VectorAndSize>();
+	private byte[] breaker = MultiChatConstants.BREAKER.getBytes();
 
 	public ServerThread(Socket socket) {
-		mSocket = socket;
-		mClientID = mSocket.getRemoteSocketAddress().toString();
+		mSocket = socket;	
 	}
 
 	public synchronized void sendData() {
@@ -90,25 +93,58 @@ public class ServerThread extends Thread {
 			mOut.flush();
 			mIn = mSocket.getInputStream();
 			SenderThread senderThread = new SenderThread(this);
+			TimeOut t = new TimeOut(this);
+			t.start();
+			t.shuldclose = false;
 			senderThread.start();
 			keepGoing = true;
 		} catch (IOException e) {
 			System.out.println("IO error in server thread");
 		}
-		// synchronized (LIST_CLIENT) {
-		// LIST_CLIENT.put(mClientID, this);
-		// }
 		try {
 			ReceivedQueueProcessorThread il = new ReceivedQueueProcessorThread(this);
 			il.start();
+			byte[] mybyte = new byte[1024 * 3];
+
+            int j = 0;
 			while (keepGoing) {
 
 				byte[] bytepassedObj = new byte[MultiChatConstants.bytesize];
 				int sizeread = mIn.read(bytepassedObj, 0, MultiChatConstants.bytesize);
+				for (int i = 0; i < sizeread; i++, j++) {
+                    mybyte[j] = bytepassedObj[i];
+
+                    // Read up to 3071 (though we're only currently reading up to 1025 bytes in)
+                    // or if this has the breaker at the location we're currently at
+                    if (j == (1024 * 3 - 1) || (j >= 4 && mybyte[j - 4] == breaker[0]
+                            && mybyte[j - 3] == breaker[1] && mybyte[j - 2] == breaker[2]
+                            && mybyte[j - 1] == breaker[3] && mybyte[j] == breaker[4])) {
+                    	mRecievedByteVector.addElement(new VectorAndSize(mybyte, j + 1));
+                        j = -1;
+                        // Create a new container
+                        mybyte = new byte[1024 * 3];
+                    }
+                }
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} finally{
+			if (! alreadyclosed) {
+                alreadyclosed = true;
+                try {
+					mIn.close();
+					mOut.close();
+	                mSocket.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+                
+            }
+			synchronized (LIST_CLIENT) {
+				LIST_CLIENT.remove(mClientID);
+			}
 		}
 	}
 
@@ -190,7 +226,7 @@ public class ServerThread extends Thread {
                 }
 				// add client id
 				if ((sizeread > 2 && sizeread < 100 && passedObj.length() >= 2
-						&& passedObj.substring(0, 2).equals("NN")) && mPtrToThis.mClientID == "") {
+						&& passedObj.substring(0, 2).equals(MultiChatConstants.USER_ID)) && mPtrToThis.mClientID == "") {
 					if (LIST_CLIENT.containsKey(passedObj.substring(2, passedObj.length() - 5))) {
 						LIST_CLIENT.remove(passedObj.substring(2, passedObj.length() - 5));
 					}
@@ -204,6 +240,32 @@ public class ServerThread extends Thread {
 
 				}
 			}
+		}
+	}
+	class TimeOut extends Thread{
+		ServerThread fr ;
+		public boolean shuldclose = true;
+		public TimeOut (ServerThread serverThread){
+			fr=serverThread;
+		}
+		@Override
+		public void run() {
+			 try {
+	                sleep(9000);
+	                if (shuldclose && !alreadyclosed) {
+	                    alreadyclosed = true;
+	                    if (fr.mIn != null) {
+	                        fr.mIn.close();
+	                    }
+	                    if (fr.mOut != null) {
+	                        fr.mOut.close();
+	                    }
+	                    if (fr.mSocket != null) {
+	                        fr.mSocket.close();
+	                    }
+	                }
+	            } catch (Exception exp) {
+	            }
 		}
 	}
 }
