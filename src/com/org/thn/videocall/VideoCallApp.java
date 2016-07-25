@@ -10,6 +10,7 @@ import java.net.UnknownHostException;
 
 /**
  * Created by tnghia on 6/29/16.
+ *
  */
 public class VideoCallApp {
     public static final int DEFAULT_PORT = 8400;
